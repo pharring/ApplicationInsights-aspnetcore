@@ -27,8 +27,8 @@ namespace Microsoft.ApplicationInsights.AspNetCore.Extensibility.Implementation.
         private AspNetCoreEventSource() : base()
         {
             try
-            {
-                this.ApplicationName = Microsoft.Extensions.PlatformAbstractions.PlatformServices.Default.Application.ApplicationName;
+            {                
+                this.ApplicationName = System.Reflection.Assembly.GetEntryAssembly().GetName().Name;
             }
             catch (Exception exp)
             {
@@ -110,6 +110,40 @@ namespace Microsoft.ApplicationInsights.AspNetCore.Extensibility.Implementation.
         public void LogWebUserTelemetryInitializerOnInitializeTelemetrySessionIdNull(string appDomainName = "Incorrect")
         {
             this.WriteEvent(7, this.ApplicationName);
+        }
+
+        [Event(8, Message = "Failed to retrieve App ID for the current application insights resource. Make sure the configured instrumentation key is valid. Error: {0}", Level = EventLevel.Warning, Keywords = Keywords.Diagnostics)]
+        public void LogFetchAppIdFailed(string exception, string appDomainName = "Incorrect")
+        {
+            this.WriteEvent(8, exception, this.ApplicationName);
+        }
+
+        /// <summary>
+        /// Logs an event for the HostingDiagnosticListener OnHttpRequestInStart method when the current activity is null.
+        /// </summary>
+        /// <param name="appDomainName">An ignored placeholder to make EventSource happy.</param>
+        [Event(9, Message = "HostingDiagnosticListener.OnHttpRequestInStart - Activity.Current is null, returning.", Level = EventLevel.Warning, Keywords = Keywords.Diagnostics)]
+        public void LogHostingDiagnosticListenerOnHttpRequestInStartActivityNull(string appDomainName = "Incorrect")
+        {
+            this.WriteEvent(9, this.ApplicationName);
+        }
+
+        [Event(10, Message = "Failed to retrieve App ID for the current application insights resource. Endpoint returned HttpStatusCode: {0}", Level = EventLevel.Warning, Keywords = Keywords.Diagnostics)]
+        public void FetchAppIdFailedWithResponseCode(string exception, string appDomainName = "Incorrect")
+        {
+            this.WriteEvent(10, exception, this.ApplicationName);
+        }
+
+        [Event(11, Message = "Unable to configure module {0} as it is not found in service collection.", Level = EventLevel.Warning, Keywords = Keywords.Diagnostics)]
+        public void UnableToFindModuleToConfigure(string moduleType, string appDomainName = "Incorrect")
+        {
+            this.WriteEvent(11, moduleType, this.ApplicationName);
+        }
+
+        [Event(12, Message = "Unable to find QuickPulseTelemetryModule in service collection. LiveMetrics feature will not be available. Please add QuickPulseTelemetryModule to services collection in the ConfigureServices method of your application Startup class.", Level = EventLevel.Error, Keywords = Keywords.Diagnostics)]
+        public void UnableToFindQuickPulseModuleInDI(string appDomainName = "Incorrect")
+        {
+            this.WriteEvent(12, this.ApplicationName);
         }
 
         /// <summary>

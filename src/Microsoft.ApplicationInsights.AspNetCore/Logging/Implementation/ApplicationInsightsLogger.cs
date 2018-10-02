@@ -1,8 +1,12 @@
 ﻿namespace Microsoft.ApplicationInsights.AspNetCore.Logging
 {
     using System;
+    using System.Collections;
     using System.Collections.Generic;
+    using System.Globalization;
+    using System.Linq;
     using Microsoft.ApplicationInsights;
+    using Microsoft.ApplicationInsights.Channel;
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.ApplicationInsights.Extensibility.Implementation;
     using Microsoft.Extensions.Logging;
@@ -15,17 +19,18 @@
         private readonly string categoryName;
         private readonly TelemetryClient telemetryClient;
         private readonly Func<string, LogLevel, bool> filter;
-        private readonly string sdkVersion;
+        private readonly ApplicationInsightsLoggerOptions options;
+        private readonly string sdkVersion = SdkVersionUtils.GetVersion();
 
         /// <summary>
         /// Creates a new instance of <see cref="ApplicationInsightsLogger"/>
         /// </summary>
-        public ApplicationInsightsLogger(string name, TelemetryClient telemetryClient, Func<string, LogLevel, bool> filter)
+        public ApplicationInsightsLogger(string name, TelemetryClient telemetryClient, Func<string, LogLevel, bool> filter, ApplicationInsightsLoggerOptions options)
         {
             this.categoryName = name;
             this.telemetryClient = telemetryClient;
             this.filter = filter;
-            this.sdkVersion = SdkVersionUtils.VersionPrefix + SdkVersionUtils.GetAssemblyVersion();
+            this.options = options;
         }
 
         /// <inheritdoc />
@@ -37,7 +42,7 @@
         /// <inheritdoc />
         public bool IsEnabled(LogLevel logLevel)
         {
-            return this.filter(categoryName, logLevel) && this.telemetryClient.IsEnabled();
+            return this.filter != null && this.telemetryClient != null && this.filter(categoryName, logLevel) && this.telemetryClient.IsEnabled();
         }
 
         /// <inheritdoc />
@@ -45,22 +50,57 @@
         {
             if (this.IsEnabled(logLevel))
             {
-                TraceTelemetry traceTelemetry = new TraceTelemetry(formatter(state, exception), this.GetSeverityLevel(logLevel));
-                IDictionary<string, string> dict = traceTelemetry.Context.Properties;
+                var stateDictionary = state as IReadOnlyList<KeyValuePair<string, object>>;
+                if (exception == null || this.options?.TrackExceptionsAsExceptionTelemetry == false)
+                {
+                    var traceTelemetry = new TraceTelemetry(formatter(state, exception), this.GetSeverityLevel(logLevel));
+                    PopulateTelemetry(traceTelemetry, stateDictionary, eventId);
+                    this.telemetryClient.TrackTrace(traceTelemetry);
+                }
+                else
+                {
+                    var exceptionTelemetry = new ExceptionTelemetry(exception);
+                    exceptionTelemetry.Message = formatter(state, exception);
+                    exceptionTelemetry.SeverityLevel = this.GetSeverityLevel(logLevel);
+                    exceptionTelemetry.Properties["Exception"] = exception.ToString();
+                    exception.Data.Cast<DictionaryEntry>().ToList().ForEach((item) => exceptionTelemetry.Properties[item.Key.ToString()] = item.Value.ToString());
+                    PopulateTelemetry(exceptionTelemetry, stateDictionary, eventId);
+                    this.telemetryClient.TrackException(exceptionTelemetry);
+                }
+            }
+        }
+
+        private void PopulateTelemetry(ITelemetry telemetry, IReadOnlyList<KeyValuePair<string, object>> stateDictionary, EventId eventId)
+        {
+            var telemetryWithProperties = telemetry as ISupportProperties;
+            if (telemetryWithProperties != null)
+            {
+                IDictionary<string, string> dict = telemetryWithProperties.Properties;
                 dict["CategoryName"] = this.categoryName;
-                dict["Exception"] = exception?.ToString();
-                IReadOnlyList<KeyValuePair<string, object>> stateDictionary = state as IReadOnlyList<KeyValuePair<string, object>>;
+
+                if (this.options?.IncludeEventId ?? false)
+                {
+                    if (eventId.Id != 0)
+                    {
+                        dict["EventId"] = eventId.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
+
+                    if (!string.IsNullOrEmpty(eventId.Name))
+                    {
+                        dict["EventName"] = eventId.Name;
+                    }
+                }
+
                 if (stateDictionary != null)
                 {
                     foreach (KeyValuePair<string, object> item in stateDictionary)
                     {
-                        dict[item.Key] = Convert.ToString(item.Value);
+                        dict[item.Key] = Convert.ToString(item.Value, CultureInfo.InvariantCulture);
                     }
                 }
-
-                traceTelemetry.Context.GetInternalContext().SdkVersion = this.sdkVersion;
-                this.telemetryClient.TrackTrace(traceTelemetry);
             }
+            
+            telemetry.Context.GetInternalContext().SdkVersion = this.sdkVersion;
         }
 
         private SeverityLevel GetSeverityLevel(LogLevel logLevel)

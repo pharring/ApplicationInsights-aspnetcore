@@ -5,13 +5,21 @@
 
     internal class SdkVersionUtils
     {
-#if NET451
+#if NET451 || NET46
         public const string VersionPrefix = "aspnet5f:";
 #else
         public const string VersionPrefix = "aspnet5c:";
 #endif
 
-        internal static string GetAssemblyVersion()
+        /// <summary>
+        /// Get the Assembly Version with SDK prefix.
+        /// </summary>
+        internal static string GetVersion()
+        {
+            return VersionPrefix + GetAssemblyVersion();
+        }
+
+        private static string GetAssemblyVersion()
         {
             return typeof(SdkVersionUtils).GetTypeInfo().Assembly.GetCustomAttributes<AssemblyInformationalVersionAttribute>()
                       .First()

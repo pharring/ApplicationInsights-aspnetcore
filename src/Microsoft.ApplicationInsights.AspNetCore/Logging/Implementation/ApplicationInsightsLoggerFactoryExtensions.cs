@@ -1,13 +1,10 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
-
-namespace Microsoft.Extensions.Logging
+﻿namespace Microsoft.Extensions.Logging
 {
     using System;
     using ApplicationInsights;
     using ApplicationInsights.AspNetCore.Logging;
     using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.Options;
 
     /// <summary>
     /// Extension methods for <see cref="ILoggerFactory"/> that allow adding Application Insights logger.
@@ -50,14 +47,42 @@ namespace Microsoft.Extensions.Logging
             IServiceProvider serviceProvider,
             Func<string, LogLevel, bool> filter)
         {
+            return factory.AddApplicationInsights(serviceProvider, filter, null);
+        }
+
+        /// <summary>
+        /// Adds an ApplicationInsights logger that is enabled as defined by the filter function.
+        /// </summary>
+        /// <param name="factory"></param>
+        /// <param name="filter"></param>
+        /// <param name="serviceProvider">The instance of <see cref="IServiceProvider"/> to use for service resolution.</param>
+        /// <param name="loggerAddedCallback">The callback that gets executed when another ApplicationInsights logger is added.</param>
+        public static ILoggerFactory AddApplicationInsights(
+            this ILoggerFactory factory,
+            IServiceProvider serviceProvider,
+            Func<string, LogLevel, bool> filter,
+            Action loggerAddedCallback)
+        {
             var client = serviceProvider.GetService<TelemetryClient>();
-            var debugLoggerControl = serviceProvider.GetService<DebugLoggerControl>();
-            if (debugLoggerControl != null)
+            var debugLoggerControl = serviceProvider.GetService<ApplicationInsightsLoggerEvents>();
+            var options = serviceProvider.GetService<IOptions<ApplicationInsightsLoggerOptions>>();
+
+            if (options == null)
             {
-                debugLoggerControl.EnableDebugLogger = false;
+                options = Options.Create(new ApplicationInsightsLoggerOptions());
             }
 
-            factory.AddProvider(new ApplicationInsightsLoggerProvider(client, filter));
+            if (debugLoggerControl != null)
+            {
+                debugLoggerControl.OnLoggerAdded();
+
+                if (loggerAddedCallback != null)
+                {
+                    debugLoggerControl.LoggerAdded += loggerAddedCallback;
+                }
+            }
+
+            factory.AddProvider(new ApplicationInsightsLoggerProvider(client, filter, options));
             return factory;
         }
     }

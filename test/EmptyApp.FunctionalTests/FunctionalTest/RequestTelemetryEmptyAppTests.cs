@@ -5,10 +5,14 @@
     using FunctionalTestUtils;
     using Microsoft.ApplicationInsights.DataContracts;
     using Xunit;
+    using Xunit.Abstractions;
 
     public class RequestTelemetryEmptyAppTests : TelemetryTestsBase
     {
         private const string assemblyName = "EmptyApp.FunctionalTests";
+        public RequestTelemetryEmptyAppTests(ITestOutputHelper output) : base(output)
+        {
+        }
 
         [Fact]
         public void TestBasicRequestPropertiesAfterRequestingBasicPage()
@@ -58,10 +62,7 @@
             }
 
             var telemetries = server.BackChannel.Buffer;
-#if NET451
-            Assert.Contains(telemetries.OfType<DependencyTelemetry>(), t => t.Name == "/Mixed");
-#endif
-
+            Assert.Contains(telemetries.OfType<DependencyTelemetry>(), t => t.Name == "GET /Mixed");
             Assert.True(telemetries.Count >= 4);
             Assert.Contains(telemetries.OfType<RequestTelemetry>(), t => t.Name == "GET /Mixed");
             Assert.Contains(telemetries.OfType<EventTelemetry>(), t => t.Name == "GetContact");

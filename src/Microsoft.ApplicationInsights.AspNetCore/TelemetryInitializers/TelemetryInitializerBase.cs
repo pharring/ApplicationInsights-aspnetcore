@@ -9,18 +9,13 @@
     using Microsoft.AspNetCore.Http;
     using Microsoft.Extensions.DependencyInjection;
 
-    internal abstract class TelemetryInitializerBase : ITelemetryInitializer
+    public abstract class TelemetryInitializerBase : ITelemetryInitializer
     {
-        private IHttpContextAccessor httpContextAccessor;
+        private readonly IHttpContextAccessor httpContextAccessor;
 
         public TelemetryInitializerBase(IHttpContextAccessor httpContextAccessor)
         {
-            if (httpContextAccessor == null)
-            {
-                throw new ArgumentNullException("httpContextAccessor");
-            }
-
-            this.httpContextAccessor = httpContextAccessor;
+            this.httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
         }
 
         public void Initialize(ITelemetry telemetry)
@@ -33,15 +28,18 @@
                 return;
             }
 
-            var request = context.Features.Get<RequestTelemetry>();
-
-            if (request == null)
+            lock (context)
             {
-                AspNetCoreEventSource.Instance.LogTelemetryInitializerBaseInitializeRequestNull();
-                return;
-            }
+                var request = context.Features.Get<RequestTelemetry>();
 
-            this.OnInitializeTelemetry(context, request, telemetry);
+                if (request == null)
+                {
+                    AspNetCoreEventSource.Instance.LogTelemetryInitializerBaseInitializeRequestNull();
+                    return;
+                }
+
+                this.OnInitializeTelemetry(context, request, telemetry);
+            }
         }
 
         protected abstract void OnInitializeTelemetry(

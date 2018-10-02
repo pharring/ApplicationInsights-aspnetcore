@@ -22,9 +22,11 @@ nuget.exe
 *.ncrunchsolution
 *.*sdf
 *.ipch
+*.done
 .vs/
 project.lock.json
 
 bower_components/
 node_modules/
 **/wwwroot/lib
+/Msbuild.*

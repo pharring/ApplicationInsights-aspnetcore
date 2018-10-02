@@ -1,5 +1,153 @@
 # Changelog
 
+## Version 2.5.0-beta2
+- ComVisible attribute is set to false for the project for compliance reasons.
+Applicable if using additional Sinks to forward telemetry to:
+  - [Default TelemetryProcessors are added to the DefaultSink instead of common TelemetryProcessor pipeline.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/752)
+  - [TelemetryProcessors added via AddTelemetryProcesor extension method are added to the DefaultSink instead of common TelemetryProcessor pipeline.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/752)
+  - [Log exception.Data properties as additional telemetry data](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/754)
+  - Update Web/Base SDK version dependency to 2.8.0-beta2
+
+## Version 2.5.0-beta1
+- [Adds opt-in support for W3C distributed tracing standard](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/735)
+- Updated Web/Base SDK version dependency to 2.8.0-beta1
+
+## Version 2.4.1
+- Patch release to update Web/Base SDK version dependency to 2.7.2 which fixed a bug (https://github.com/Microsoft/ApplicationInsights-dotnet-server/issues/970)
+
+## Version 2.4.0
+- Updated Web/Base SDK version dependency to 2.7.1
+
+## Version 2.4.0-beta4
+- [Generate W3C compatible operation Id when there is no parent operation](https://github.com/Microsoft/ApplicationInsights-dotnet-server/pull/952)
+- Updated Web/Base SDK version dependency to 2.7.0-beta4
+
+## Version 2.4.0-beta3
+- [Allow configuring exception tracking in RequestTrackingTelemetryModule and merge OperationCorrelationTelemetryInitializer with RequestTrackingTelemetryModule](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/709)
+- [Allow disabling response headers injection](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/613)
+- Updated Web/Base SDK version dependency to 2.7.0-beta3
+- The above referenced base SDK contains fix for leaky HttpConnections. (https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/690)
+
+## Version 2.4.0-beta2
+- Updated Web/Base SDK version dependency to 2.7.0-beta2
+
+## Version 2.4.0-beta1
+- Updated Web/Base SDK version dependency to 2.7.0-beta1
+- Enables Performance Counters for Asp.Net Core Apps running in Azure Web Apps. (https://github.com/Microsoft/ApplicationInsights-dotnet-server/issues/889)
+- Added null check on ContentRootPath of the hostingenvironment. (https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/696)
+
+## Version 2.3.0
+- [Fix a bug which caused Requests to fail when Hostname was empty.] (https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/278)
+- [Fix reading of instrumentation key from appsettings.json file when using AddApplicationInsightsTelemetry() extension to add ApplicationInsights ](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/605)
+- [Bring back DomainNameRoleInstanceTelemetryInitializer without which NodeName and RoleInstance will be empty in Ubuntu](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/671)
+- [RequestTelemetry is no longer populated with HttpMethod which is obsolete.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/675)
+- Fixed a bug which caused AutoCollectedMetricExtractor flag to be always true.
+- Updated Web/Base SDK version dependency to 2.6.4
+
+## Version 2.3.0-beta2
+- [Update System.Net.Http version referred to 4.3.2 as older version has known security vulnerability. ](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/666)
+- [Added ApplicationInsightsServiceOptions flag to turn off AutoCollectedMetricExtractor. ](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/664)
+- [Added two AdaptiveSamplingTelemetryProcessors one for Event and one for non Event types to be consistent with default Web SDK behaviour. ](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/663)
+- [RequestCollection is refactored to be implemented as an ITelemetryModule. This makes it possible to configure it like every other auto-collection modules. ](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/650)
+- [Fixed race condition on dispose to close #651](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/652)
+-Removed DomainNameRoleInstanceTelemetryInitializer as it is deprecated.
+-Reuse AzureWebAppRoleEnvironmentTelemetryInitializer from WindowsServer repo instead of outdated implementation in this repo.
+- Updated Web/Base SDK version dependency to 2.6.0-beta4
+
+## Version 2.3.0-beta1
+- Changed behavior for `TelemetryConfiguration.Active` and `TelemetryConfiguration` dependency injection singleton: with this version every WebHost has its own `TelemetryConfiguration` instance. Changes done for `TelemetryConfiguration.Active` do not affect telemetry reported by the SDK; use `TelemetryConfiguration` instance obtained through the dependency injection. [Fix NullReferenceException when sending http requests in scenario with multiple web hosts sharing the same process](https://github.com/Microsoft/ApplicationInsights-dotnet/issues/613)
+- Updated Javascript Snippet with latest from [Github/ApplicationInsights-JS](https://github.com/Microsoft/ApplicationInsights-JS)
+- [Make all built-in TelemetryInitializers public to allow easy removal from DI Container.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/351)
+- [Enforced limits of values read from incoming http requests to prevent security vulnerability](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/608)
+- [ApplicationInsightsLogger adds EventId into telemetry properties. It is off by default for compatibility. It can be switched on by configuring ApplicationInsightsLoggerOptions.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/569)
+- [ApplicationInsightsLogger logs exceptions as ExceptionTelemetry by default. This can now be configured with ApplicationInsightsLoggerOptions.TrackExceptionsAsExceptionTelemetry] (https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/574)
+- [Add App Services and Azure Instance Metedata heartbeat provider modules by default, allow user to disable via configuration object.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/627)
+- [Added extension method to allow configuration of any Telemetry Module.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/634)
+- [Added ability to remove any default Telemetry Module.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/633)
+- [TelemetryChannel is configured via DI, making it easier to override channel](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/641)
+- [Fixed a bug which caused QuickPulse and Sampling to be enabled only if ServerTelemetryChannel was used](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/642)
+- [QuickPulseTelemetryModule is constructed via DI, make it possible for users to configure it.] (https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/639)
+- [Remove CorrelationIdLookupHelper. Use TelemetryConfiguration.ApplicationIdProvider instead.](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/636) With this change you can update URL to query application ID from which enables environments with reverse proxy configuration to access Application Insights ednpoints.
+- [AutocollectedMetricsExtractor is added by default to the TelemetryConfiguration](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/604)
+- Updated Web/Base SDK version dependency to 2.6.0-beta3
+
+## Version 2.2.1
+- Updated Web/Base SDK version dependency to 2.5.1 which addresses a bug.
+
+## Version 2.2.0
+- Updated Web/Base SDK version dependency to 2.5.0
+
+## Version 2.2.0-beta3
+- Updated Web/Base SDK version dependency to 2.5.0-beta2.
+- This version of Base SDK referred contains fix to a bug in ServerTelemetryChannel which caused application to crash on non-windows platforms. Details on fix and workaround(https://github.com/Microsoft/ApplicationInsights-dotnet/issues/654) Original issue (https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/551)
+
+## Version 2.2.0-beta2
+- Same bits as beta1. Only change is that the symbols for the binaries are indexed in Microsoft symbol servers. Beta1 symbols will not be available.
+
+## Version 2.2.0-beta1
+
+- Project is upgraded to work with Visual Studio 2017. Also projects are modified to use csproj instead of project.json.
+- Adaptive sampling enabled for both - full framework and .NET Core applications.
+- ServerTelemetryChannel is enabled and set as default channel for both - full framework and .NET Core applications.
+- Live metrics collection is enabled by default for .NET Core applications (was already enabled for full .NET applications).
+- Updated Web/Base SDK version dependency to 2.5.0-beta1.
+- DependencyCollector referred from 2.5.0-beta1 supports collecting SQL dependency calls in .NET Core Applications using EntityFramework.
+
+## Version 2.1.1
+
+- [Address the issue where DependencyCollection breaks Azure Storage Emulator calls](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/488)
+- [Support setting request operation name based on executing Razor Page](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/430)
+- [Fixed ITelemetryProcessor dependency injection failure when using 3rd party IoC Container](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/482)
+- [Logging exceptions when using ILogger if an exception is present](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/393)
+- [Syncronize access to HttpContext properties](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/373)
+- Updated SDK version dependency to 2.4.1 for DependencyCollector.
+
+## Version 2.1.0
+
+- Updated SDK version dependency to 2.4.0.
+- Fixed a minor logging message issue.
+- Fixed unit test reliability issues.
+
+## Version 2.1.0-beta6
+
+- Updated SDK version dependency to 2.4.0-beta5.
+
+## Version 2.1.0-beta5
+
+- Added support for adding telemetry processors through dependency injection; see #344, #445, #447
+- [Added support for environment specifc appsettings under default configuration](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/449)
+- Updated SDK version dependency to 2.4.0-beta4.
+
+## Version 2.1.0-beta4
+
+- [Made package meta-data URLs use HTTPS](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/390)
+- Updated SDK version dependency to 2.4.0-beta3.
+
+## Version 2.1.0-beta3
+
+- [Removed the use of Platform Abstractions](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/410)
+- [Correlation header injection disabled for standard Azure storage calls](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/416)
+- [Made UseApplicationInsights and AddApplicationInsightsTelemetry calls idempotent](https://github.com/Microsoft/ApplicationInsights-aspnetcore/pull/419)
+
+## Version 2.1.0-beta2
+
+- Updated to use the new correlation headers and changed the correlationId to use appId instead of hashed ikey to match other SDKs.
+- Fixed null reference exception for unitialized ILogger.
+- Unit test bug fixes.
+- Upgraded NETStandard.Library dependency to 1.6.1.
+- Updated to reference base SDK 2.4.0-beta2.
+- Included Microsoft.ApplicationInsights.DependencyCollector for .NET Core.
+
+## Version 2.1.0-beta1
+
+- Bug fixes
+- Removed UserAgentTelemetryInitializer and associated tests.
+- Added instrumentation key header
+- [Added OperationCorrelationTelemetryInitializer](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/333)
+- [Set Id instead of OperationId for request dependency correlation](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/340)
+- [Set Id in thread-safe location](https://github.com/Microsoft/ApplicationInsights-aspnetcore/issues/342)
+- Updated SDK version dependency to 2.3.0-beta3.
+
 ## Version 2.0.0
 
 - Added a configuration overload for AddApplicationInsightsTelemetry.

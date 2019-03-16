@@ -5,7 +5,6 @@
     using System.Globalization;
     using System.Linq;
     using System.Net.Http.Headers;
-    using System.Reflection;
     using System.Text;
     using Extensibility.Implementation.Tracing;
     using Microsoft.ApplicationInsights.AspNetCore.Extensions;
@@ -13,13 +12,11 @@
     using Microsoft.ApplicationInsights.DataContracts;
     using Microsoft.ApplicationInsights.Extensibility;
     using Microsoft.ApplicationInsights.Extensibility.Implementation;
-    using Microsoft.ApplicationInsights.W3C;
-    using Microsoft.AspNetCore.Hosting;
+    using Microsoft.ApplicationInsights.Extensibility.W3C;
     using Microsoft.AspNetCore.Http;
     using Microsoft.Extensions.DiagnosticAdapter;
     using Microsoft.Extensions.Primitives;
 
-#pragma warning disable 612, 618
     /// <summary>
     /// <see cref="IApplicationInsightDiagnosticListener"/> implementation that listens for events specific to AspNetCore hosting layer.
     /// </summary>
@@ -30,7 +27,7 @@
         /// To support AspNetCore 1.0 and 2.0, we listen to both old and new events.
         /// If the running AspNetCore version is 2.0, both old and new events will be sent. In this case, we will ignore the old events.
         /// </summary>
-        public static bool IsAspNetCore20 = typeof(WebHostBuilder).GetTypeInfo().Assembly.GetName().Version.Major >= 2;
+        private readonly bool enableNewDiagnosticEvents;
 
         private readonly TelemetryClient client;
         private readonly IApplicationIdProvider applicationIdProvider;
@@ -38,7 +35,7 @@
         private readonly bool injectResponseHeaders;
         private readonly bool trackExceptions;
         private readonly bool enableW3CHeaders;
-
+        private static readonly ActiveSubsciptionManager SubscriptionManager = new ActiveSubsciptionManager();
         private const string ActivityCreatedByHostingDiagnosticListener = "ActivityCreatedByHostingDiagnosticListener";
 
         /// <summary>
@@ -49,13 +46,27 @@
         /// <param name="injectResponseHeaders">Flag that indicates that response headers should be injected.</param>
         /// <param name="trackExceptions">Flag that indicates that exceptions should be tracked.</param>
         /// <param name="enableW3CHeaders">Flag that indicates that W3C header parsing should be enabled.</param>
-        public HostingDiagnosticListener(TelemetryClient client, IApplicationIdProvider applicationIdProvider, bool injectResponseHeaders, bool trackExceptions, bool enableW3CHeaders)
+        /// <param name="enableNewDiagnosticEvents">Flag that indicates that new diagnostic events are supported by AspNetCore</param>
+        public HostingDiagnosticListener(
+            TelemetryClient client,
+            IApplicationIdProvider applicationIdProvider,
+            bool injectResponseHeaders,
+            bool trackExceptions,
+            bool enableW3CHeaders,
+            bool enableNewDiagnosticEvents = true)
         {
+            this.enableNewDiagnosticEvents = enableNewDiagnosticEvents;
             this.client = client ?? throw new ArgumentNullException(nameof(client));
             this.applicationIdProvider = applicationIdProvider;
             this.injectResponseHeaders = injectResponseHeaders;
             this.trackExceptions = trackExceptions;
             this.enableW3CHeaders = enableW3CHeaders;
+        }
+
+        /// <inheritdoc />
+        public void OnSubscribe()
+        {
+            SubscriptionManager.Attach(this);
         }
 
         /// <inheritdoc/>
@@ -67,7 +78,7 @@
         [DiagnosticName("Microsoft.AspNetCore.Hosting.HttpRequestIn")]
         public void OnHttpRequestIn()
         {
-            // do nothing, just enable the diagnotic source
+            // do nothing, just enable the diagnostic source
         }
 
         /// <summary>
@@ -78,6 +89,15 @@
         {
             if (this.client.IsEnabled())
             {
+                // It's possible to host multiple apps (ASP.NET Core or generic hosts) in the same process
+                // Each of this apps has it's own HostingDiagnosticListener and corresponding Http listener.
+                // We should ignore events for all of them except one
+                if (!SubscriptionManager.IsActive(this))
+                {
+                    AspNetCoreEventSource.Instance.NotActiveListenerNoTracking("Microsoft.AspNetCore.Hosting.HttpRequestIn.Start", Activity.Current?.Id);
+                    return;
+                }
+
                 if (Activity.Current == null)
                 {
                     AspNetCoreEventSource.Instance.LogHostingDiagnosticListenerOnHttpRequestInStartActivityNull();
@@ -168,8 +188,18 @@
         [DiagnosticName("Microsoft.AspNetCore.Hosting.BeginRequest")]
         public void OnBeginRequest(HttpContext httpContext, long timestamp)
         {
-            if (this.client.IsEnabled() && !IsAspNetCore20)
+            if (this.client.IsEnabled() && !this.enableNewDiagnosticEvents)
             {
+                // It's possible to host multiple apps (ASP.NET Core or generic hosts) in the same process
+                // Each of this apps has it's own HostingDiagnosticListener and corresponding Http listener.
+                // We should ignore events for all of them except one
+                if (!SubscriptionManager.IsActive(this))
+                {
+                    AspNetCoreEventSource.Instance.NotActiveListenerNoTracking(
+                        "Microsoft.AspNetCore.Hosting.BeginRequest", Activity.Current?.Id);
+                    return;
+                }
+
                 var activity = new Activity(ActivityCreatedByHostingDiagnosticListener);
                 var isActivityCreatedFromRequestIdHeader = false;
 
@@ -255,7 +285,7 @@
         [DiagnosticName("Microsoft.AspNetCore.Hosting.EndRequest")]
         public void OnEndRequest(HttpContext httpContext, long timestamp)
         {
-            if (!IsAspNetCore20)
+            if (!this.enableNewDiagnosticEvents)
             {
                 EndRequest(httpContext, timestamp);
             }
@@ -271,7 +301,7 @@
 
             // In AspNetCore 1.0, when an exception is unhandled it will only send the UnhandledException event, but not the EndRequest event, so we need to call EndRequest here.
             // In AspNetCore 2.0, after sending UnhandledException, it will stop the created activity, which will send HttpRequestIn.Stop event, so we will just end the request there.
-            if (!IsAspNetCore20)
+            if (!this.enableNewDiagnosticEvents)
             {
                 this.EndRequest(httpContext, Stopwatch.GetTimestamp());
             }
@@ -374,6 +404,16 @@
         {
             if (this.client.IsEnabled())
             {
+                // It's possible to host multiple apps (ASP.NET Core or generic hosts) in the same process
+                // Each of this apps has it's own HostingDiagnosticListener and corresponding Http listener.
+                // We should ignore events for all of them except one
+                if (!SubscriptionManager.IsActive(this))
+                {
+                    AspNetCoreEventSource.Instance.NotActiveListenerNoTracking(
+                        "EndRequest", Activity.Current?.Id);
+                    return;
+                }
+
                 var telemetry = httpContext?.Features.Get<RequestTelemetry>();
 
                 if (telemetry == null)
@@ -415,6 +455,16 @@
         {
             if (this.trackExceptions && this.client.IsEnabled())
             {
+                // It's possible to host multiple apps (ASP.NET Core or generic hosts) in the same process
+                // Each of this apps has it's own HostingDiagnosticListener and corresponding Http listener.
+                // We should ignore events for all of them except one
+                if (!SubscriptionManager.IsActive(this))
+                {
+                    AspNetCoreEventSource.Instance.NotActiveListenerNoTracking(
+                        "Exception", Activity.Current?.Id);
+                    return;
+                }
+
                 var telemetry = httpContext?.Features.Get<RequestTelemetry>();
                 if (telemetry != null)
                 {
@@ -431,7 +481,7 @@
         private void SetW3CContext(IHeaderDictionary requestHeaders, Activity activity, out string sourceAppId)
         {
             sourceAppId = null;
-            if (requestHeaders.TryGetValue(W3CConstants.TraceParentHeader, out StringValues traceParentValues))
+            if (requestHeaders.TryGetValue(W3C.W3CConstants.TraceParentHeader, out StringValues traceParentValues))
             {
                 var parentTraceParent = StringUtilities.EnforceMaxLength(traceParentValues.First(),
                     InjectionGuardConstants.TraceParentHeaderMaxLength);
@@ -442,7 +492,7 @@
                 activity.GenerateW3CContext();
             }
 
-            string[] traceStateValues = HttpHeadersUtilities.SafeGetCommaSeparatedHeaderValues(requestHeaders, W3CConstants.TraceStateHeader,
+            string[] traceStateValues = HttpHeadersUtilities.SafeGetCommaSeparatedHeaderValues(requestHeaders, W3C.W3CConstants.TraceStateHeader,
                 InjectionGuardConstants.TraceStateHeaderMaxLength, InjectionGuardConstants.TraceStateMaxPairs);
 
             if (traceStateValues != null && traceStateValues.Any())
@@ -450,7 +500,7 @@
                 var pairsExceptAz = new StringBuilder();
                 foreach (var t in traceStateValues)
                 {
-                    if (t.StartsWith(W3CConstants.AzureTracestateNamespace + "=", StringComparison.Ordinal))
+                    if (t.StartsWith(W3C.W3CConstants.AzureTracestateNamespace + "=", StringComparison.Ordinal))
                     {
                         // start after 'az='
                         TryExtractAppIdFromAzureTracestate(t.Substring(3), out sourceAppId);
@@ -492,9 +542,9 @@
         private static bool TryExtractAppIdFromAzureTracestate(string azTracestate, out string appId)
         {
             appId = null;
-            var parts = azTracestate.Split(W3CConstants.TracestateAzureSeparator);
+            var parts = azTracestate.Split(W3C.W3CConstants.TracestateAzureSeparator);
 
-            var appIds = parts.Where(p => p.StartsWith(W3CConstants.ApplicationIdTraceStateField, StringComparison.Ordinal)).ToArray();
+            var appIds = parts.Where(p => p.StartsWith(W3C.W3CConstants.ApplicationIdTraceStateField, StringComparison.Ordinal)).ToArray();
 
             if (appIds.Length != 1)
             {
@@ -504,6 +554,10 @@
             appId = appIds[0];
             return true;
         }
+
+        public void Dispose()
+        {
+            SubscriptionManager.Detach(this);
+        }
     }
-#pragma warning restore 612, 618
 }
